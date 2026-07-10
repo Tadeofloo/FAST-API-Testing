@@ -1,4 +1,5 @@
 
+
 name: Continus Integration
 
 on: 
@@ -31,4 +32,4 @@ jobs:
         env: 
           PYTHONPATH: ${{ github.workspace }}
         run: |
-          pytest test/
+          pytest tests/
