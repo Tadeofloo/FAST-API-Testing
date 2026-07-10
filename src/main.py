@@ -1,48 +1,30 @@
-import os
-import gc
 from fastapi import FastAPI, HTTPException
+import time
 
-app = FastAPI()
+app = FastAPI(title="Unstable API", version="1.0.0")
 
-# Global list to simulate a controlled memory leak later
-leak_storage = []
-
-@app.get("/")
-def read_root():
-    environment = os.getenv("ENVIRONMENT", "development")
-    return {
-        "message": "Cloud Platform Microservice App",
-        "environment": environment,
-        "status": "operational"
-    }
+mem_leak_list = []
 
 @app.get("/health")
 def health_check():
-    # Standard health check endpoint for Kubernetes probes
     return {"status": "healthy"}
 
 @app.get("/stress-cpu")
-def stress_cpu(iterations: int = 5_000_000):
-    # Endpoint to simulate a CPU spike and trigger auto-scaling rules
-    count = 0
-    for i in range(iterations):
-        count += i
-    return {"message": "CPU load simulation complete", "result": count}
+def stress_cpu():
+    # Block CPU thread for 10 seconds to simulate load
+    end_time = time.time() + 10
+    while time.time() < end_time:
+        pass
+    return {"status": "cpu_stressed"}
 
 @app.get("/memory-leak")
-def memory_leak(blocks: int = 10):
-    # Endpoint to simulate memory exhaustion and trigger OOMKilled events
-    global leak_storage
-    try:
-        for _ in range(blocks):
-            # Allocate a chunk of memory (approx 10MB per block)
-            large_string = "X" * (10 * 1024 * 1024)
-            leak_storage.append(large_string)
-        return {"message": f"Allocated {blocks} memory blocks successfully"}
-    except MemoryError:
-        raise HTTPException(status_code=500, detail="Application ran out of memory")
+def memory_leak():
+    # Allocate roughly 50MB of memory per request globally
+    global mem_leak_list
+    mem_leak_list.append(" " * (50 * 1024 * 1024))
+    return {"status": "memory_allocated"}
 
 @app.get("/force-error")
 def force_error():
-    # Endpoint to force a 500 internal server error for observability metrics
-    raise HTTPException(status_code=500, detail="Simulated application failure")
+    # Simulate an unhandled exception for error rate monitoring
+    raise HTTPException(status_code=500, detail="Intentional server error")
