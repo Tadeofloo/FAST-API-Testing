@@ -1,31 +1,57 @@
-name: CI Pipeline
+name: Continuous Integration
 
 on:
-  push:
-    branches:
-      - main
   pull_request:
     branches:
       - main
+  push:
+    branches:
+      - main
+
+# Required to request the OIDC JWT token from GitHub
+permissions:
+  id-token: write
+  contents: read
 
 jobs:
-  test-and-validate:
+  build-and-test:
     runs-on: ubuntu-latest
-
     steps:
-      - name: Checkout Repository
+      - name: Checkout code
         uses: actions/checkout@v4
 
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
           python-version: '3.11'
+          cache: 'pip'
 
-      - name: Install Project Dependencies
+      - name: Install dependencies
         run: |
           python -m pip install --upgrade pip
-          pip install -r requirements.txt
+          pip install -r src/requirements.txt
 
-      - name: Run Test Suite
+      - name: Run Pytest
+        env:
+          PYTHONPATH: ${{ github.workspace }}
         run: |
-          pytest test_main.py
+          pytest tests/
+
+  deploy-infrastructure:
+    # This job waits for tests to pass
+    needs: build-and-test
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Azure Login via OIDC
+        uses: azure/login@v2
+        with:
+          client-id: ${{ secrets.AZURE_CLIENT_ID }}
+          tenant-id: ${{ secrets.AZURE_TENANT_ID }}
+          subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+
+      - name: Verify Azure Connection
+        run: |
+          az account show
